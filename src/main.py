@@ -8,7 +8,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-app.register_blueprint(message_webhook_bp, url_prefix='/webhook/')
+app.register_blueprint(message_webhook_bp, url_prefix='/webhook')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
