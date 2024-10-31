@@ -73,4 +73,3 @@ def handle_message(incoming_msg, phone_number):
     except Exception as e:
         print(f"Error al actualizar la base de datos: {e}")  # Mensaje de error
 
-

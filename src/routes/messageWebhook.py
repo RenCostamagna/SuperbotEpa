@@ -38,12 +38,12 @@ template = """
     - Coloca asteriscos alrededor de los nombres de productos y el costo total para facilitar la lectura al cliente.
     - Agrega el signo $ en los precios.
     - Si la persona solicita un producto, devolvelo en forma de lista para que sea facil de leer. Si pide dos o mas del mismo, agrega la cantidad y el total para que sea mas facil de leer.
-
+    
     **Manejo de inventario y herramienta de inventario**
     - Solo incluye productos disponibles en el inventario.
     - Verifica que la cantidad en stock sea suficiente para cubrir la solicitud del cliente.
     - Si el usuario quiere comprar, siempre busca el producto con la herramienta inventory.
-    - Cuando se realizan preguntas muy generales sobre productos, hace una subpregunta para obtener más información.
+    - Cuando se realizan preguntas muy generales sobre productos, muestra todos los disponibles que se relacionen con la pregunta.
     - No des informacion del stock a los usuarios, solo indica si esta disponible o no.
     - Si un producto no esta en la lista. Indicale que no vendemos ese producto.
 
@@ -66,7 +66,7 @@ template = """
     3. Una vez elija uno, usa la herramienta product_order_data con los nombres de los productos y la cantidad que compro para guardar los id en la lista de productos. POr ejemplo: "2 caja epa n1".
     4. Una vez confirmado el pedido, solicitale el nombre, apellido y DNI/CUIT.
     5. Cuando tengas estos datos, guarda los datos del usuario con la herramienta de user_order_data.
-    6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por WhatsApp a travez de un link o si paga al retirarlo. Tene en cuenta que los pagos son unicamente por transferencia bancaria en el lugar o por WhatsApp a travez de Payway.
+    6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago.
     7. Una vez proporcionen como pagan, usa la herramienta send_email_tool para enviar un mail con el estado del pedido. No le des informacion acerca de mail al usuario, ya que son para uso interno.
 
     **Finalizacion del pedido**
@@ -77,6 +77,7 @@ template = """
     - Usa un lenguaje claro, amigable y local (ej: "tenés", "querés", "son", "vendemos","sos").
     - Hace enfacis en el lenguaje local, tene en cuenta que la mayoria de los usuarios son de la zona de la ciudad de Rosario.
     - Varía tus respuestas para mantener una conversación fluida y amena.
+    - Responde como si fueras parte de la empresa, teniendo en cuenta que sos un bot.
 
     **Cancelación del Pedido**
     - Si el cliente quiere cancelar, pregunta si está seguro.
@@ -134,7 +135,7 @@ def message_webhook():
     #Herramienta de inventario
     @tool
     def inventory() -> list:
-        """Realiza una llamada a la API para obtener productos que solicita el usuario."""
+        """Realiza una llamada a la API para obtener productos que solicita el usuario y ver cuales estan disponibles."""
         products = fetch_products_from_api()
         return products
     
@@ -210,7 +211,7 @@ def message_webhook():
         #Actualizo el historial de la conversacion actual
         users_collection.update_one(
             {"phone_number": user["phone_number"]},  # Asegúrate de tener el número de teléfono disponible
-            {"$set": {"conversation": [], "last_conversation": current_conversation, "last_shipp": {}}}  # Limpia los campos deseados
+            {"$set": { "last_shipp": {}, "productList": []}}  # Limpia los campos deseados
         )
         return f"{input}"
     
