@@ -69,6 +69,9 @@ template = """
     6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago.
     7. Una vez proporcionen como pagan, usa la herramienta send_email_tool para enviar un mail con el estado del pedido. No le des informacion acerca de mail al usuario, ya que son para uso interno.
 
+    **Pago**
+    - Si la persona paga con transferencia bancaria envia el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante.
+
     **Finalizacion del pedido**
     - Una vez se haya enviado la correspondiente confirmacion, pregunta al usuario si quiere seguir comprando o si necesita ayuda con algo mas.
     - Si la respuesta es que no, envia un mensaje de despedida y llama a la herramienta de cancel_order para reiniciar el historial de la conversacion.
@@ -90,7 +93,7 @@ template = """
     - Si lo creer necesario, usa mas de una herramienta para responder la pregunta.
     """
 
-@message_webhook_bp.route('/', methods=['POST'])
+@message_webhook_bp.route('', methods=['POST'])
 def message_webhook():
     #Recibo el contenido del mensaje y el número de teléfono
     print("Webhook recibido")
