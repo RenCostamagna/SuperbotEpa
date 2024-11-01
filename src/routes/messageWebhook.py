@@ -11,6 +11,7 @@ from utils.clientsUtil import fetch_clients_from_api
 from utils.pdfUtil import get_pdfs_response
 from utils.emailUtil import send_email
 from utils.pedidosUtil import send_order_to_api
+from utils.paymentUtil import send_payment_intentions_to_api
 from config.getExternalId import get_external_id
 
 #Importaciones de Langchain
@@ -69,12 +70,14 @@ template = """
     4. Una vez confirmado el pedido, solicitale el nombre, apellido y DNI/CUIT.
     5. Cuando tengas estos datos, guarda los datos del usuario con la herramienta de user_order_data.
     6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago.
-    7. Si elige pagar por transferencia bancaria, usa la herramienta transfer_pay_order para enviar los datos de la transferencia. 
-    8. Una vez proporcionen como pagan, usa la herramienta send_email_tool para enviar un mail con el estado del pedido. Si la persona pago con transferencia, el estado es transfe. No le des informacion acerca de mail al usuario, ya que son para uso interno.
-
+   
     **Pago**
-    - Si la persona paga con transferencia bancaria envia el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante.
-    - Si la persona paga con Payway, indicale que todavia no esta disponible.
+    - Si la persona paga con transferencia bancaria:
+        1. Envia el alias y el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante.
+        2. Usa la herramienta send_email_tool para enviar un mail con el estado "transferencia" del pedido. No esperes a que pague el usuario para usar la herramienta. No le des informacion acerca de mail al usuario, ya que son para uso interno.
+    - Si la persona paga con Payway: 
+        1. Usa la herramienta send_payment_intention para enviar el link de pago al usuario de forma clara.
+        2. Una vez el pago este aprobado, usa la herramienta send_email_tool para enviar un mail con el estado "pago" del pedido. No le des informacion acerca de mail al usuario, ya que son para uso interno.
     
     **Finalizacion del pedido**
     - Una vez se haya enviado la correspondiente confirmacion, pregunta al usuario si quiere seguir comprando o si necesita ayuda con algo mas.
@@ -158,6 +161,16 @@ def message_webhook():
         return clients
     
     @tool
+    def send_payment_intention(input: str) -> str:
+        """Envia el link de pago al usuario."""
+        users_collection = get_mongo_connection('users')
+        user = users_collection.find_one({'phone_number': phone_number})
+        user_shipp = user.get("last_shipp", {}).get("client", [])
+        user_list = user.get("productList", None)
+        url = send_payment_intentions_to_api(user_shipp, user_list, phone_number)
+        return url
+
+    @tool
     def user_order_data(input: list) -> str:
         """Guarda los datos del cliente en last_shipp. Los datos que tenes que guarda son los que le solicitaste al usuario. 
         El formato de last_shipp es el siguiente:"externalId": 0,"razonSocial": "dato dado por el usuario","cuit":"dato dado por el usuario cuit o dni","retiro":"punto de retiro elegido por el usuario".
@@ -194,10 +207,9 @@ def message_webhook():
     def transfer_pay_order(input: str) -> str:
         """Envia al usuario los siguientes datos para hacer la transferencia bancaria indicandole el total que debe transferir. Asegurate de que el total sea el correcto.
         Datos de la transferencia:
-        Número de cuenta: CC$ 191-274-023677/0
         Titular: COOP DE TRAB ALIMENTOS SOB LT 
-        CUIT: 30-71837240-9
         CBU: 19102748-55027402367700
+        Alias: epa.rosario
         """
         return f"{input}"
 
@@ -218,7 +230,7 @@ def message_webhook():
         )
         return f"{input}"
     
-    tools = [inventory, transfer_pay_order, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data]
+    tools = [inventory, transfer_pay_order, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data, send_payment_intention]
 
 
     agent = create_tool_calling_agent(llm, tools, principalPrompt)
