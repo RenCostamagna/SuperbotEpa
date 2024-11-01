@@ -11,6 +11,11 @@ def fetch_products_from_api() -> list:
     if response.status_code == 200:
         products = response.json()  # Almacena los productos en una variable
         products = [product for product in products if product['externalId'] != exclude_external_id]  # Filtra el producto
+        
+        # Multiplica el precio de cada producto por 1.21 para incluir el IVA y redondea a 2 decimales
+        for product in products:
+            product['con_iva'] = str(round(float(product['con_iva']) * 1.21, 2))  # Convierte a float, multiplica, redondea y luego a string
+        
         return products  # Devuelve los productos filtrados
     else:
         print("Error al obtener productos:", response.status_code)

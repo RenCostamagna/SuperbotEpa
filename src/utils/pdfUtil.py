@@ -15,7 +15,7 @@ load_dotenv()
 
 def get_pdfs_response(question: str) -> str:
     openai_api_key = os.getenv("OPENAI_API_KEY")
-    llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key)
+    llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.5)
     pdf_path = "src/utils/pdf/InformacionEPA.pdf"
 
     loader = PyPDFLoader(pdf_path)
@@ -30,10 +30,11 @@ def get_pdfs_response(question: str) -> str:
     retriever = vectorstore.as_retriever()
 
     system_prompt = (
-        "Respode las preguntas de los usuarios con el contexto del pdf. Resumilas un poco para que sea mas facil de entender y leer desde WhatsApp. Si la persona pregunta por los productos que contiene la caja, reponde con la lista completa de todos ellos en forma literal."
-        "Responde solo con lo que esta en el pdf, no inventes cosas."
-        "Modifica el lenguaje si lo crees necesario para que suena mas natural, pero mandtene siempre el contexto del pdf."
-        "Podes agregar asteriscos para resaltar palabras o frases, pero no agregues mas de 1 por lado."
+        "Responde las preguntas de los usuarios exclusivamente con el contexto del PDF."
+        "Si alguien pregunta por los productos que contiene la caja, responde con la lista literal de productos."
+        "No agregues nada que no esté en el PDF, y evita extenderte más allá de la información proporcionada."
+        "Si alguna información solicitada no está en el PDF, responde simplemente: 'No tengo acceso a esa información.'"
+        "Usa *asteriscos* para destacar términos clave si lo consideras útil, sin agregar más de uno a cada lado."
         "\n\n"
         "{context}"
     )

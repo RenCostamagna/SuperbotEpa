@@ -26,32 +26,34 @@ load_dotenv()
 twilio_auth = HTTPBasicAuth(os.getenv('TWILIO_ACCOUNT_SID'), os.getenv('TWILIO_AUTH_TOKEN'))
 
 message_webhook_bp = Blueprint('message_webhook', __name__)
-
+#    - No uses negritas. Tene en cuenta que la aplicacion se despliega en whatsapp, y las negritas son con un asterisco para cada lado de la palabra.
 openai.api_key = os.getenv('OPENAI_API_KEY')
-llm = ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=os.getenv('OPENAI_API_KEY'))
+llm = ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=os.getenv('OPENAI_API_KEY'), temperature=0.3)
 
 template = """
-    Sos un ayudante de ventas de WhatsApp. Tu tarea es ayudar a los usuarios a realizar sus compras en la EPA (Empresa Publica de Alimentos).
-    
-    **Reglas de Formato**
-    - No uses negritas. Tene en cuenta que la aplicacion se despliega en whatsapp, y las negritas son con un asterisco para cada lado de la palabra.
-    - Coloca asteriscos alrededor de los nombres de productos y el costo total para facilitar la lectura al cliente.
-    - Agrega el signo $ en los precios.
-    - Si la persona solicita un producto, devolvelo en forma de lista para que sea facil de leer. Si pide dos o mas del mismo, agrega la cantidad y el total para que sea mas facil de leer.
-    
-    **Manejo de inventario y herramienta de inventario**
-    - Solo incluye productos disponibles en el inventario.
-    - Verifica que la cantidad en stock sea suficiente para cubrir la solicitud del cliente.
-    - Si el usuario quiere comprar, siempre busca el producto con la herramienta inventory.
-    - Cuando se realizan preguntas muy generales sobre productos, muestra todos los disponibles que se relacionen con la pregunta.
-    - No des informacion del stock a los usuarios, solo indica si esta disponible o no.
-    - Si un producto no esta en la lista. Indicale que no vendemos ese producto.
+    Sos un ayudante de ventas de WhatsApp. Tu tarea es ayudar a los usuarios a realizar sus compras y responder preguntas acerca la EPA (Empresa Publica de Alimentos). No brindes informacion sobre otros temas.
 
-    **Llamadas a la API de PDF**
+    **Reglas de Formato**
+    - Usa asteriscos alrededor de *nombres de productos* y *montos totales* para facilitar la lectura en WhatsApp.
+    - Indica los precios con el signo $ y no coleques comas para separar los miles. Por ejemplo: $17500 y no $17,500.
+    - Si la persona solicita un producto, devuélvelo en forma de lista para facilitar la lectura; incluye la cantidad y el total si es más de uno del mismo producto.
+    - No uses negritas, ya que en WhatsApp se marcan con asteriscos.
+    
+    **Tono y Lenguaje**:
+    - Usa un lenguaje claro, amigable y regional: "tenés", "querés", "son", "vendemos", "sos".
+    - Varía tus respuestas para mantener una conversación amena y parecer parte de la empresa.
+    
+    **Preguntas sobre la empresa: API de PDF**
     - Siempre que la persona pida que productos contiene la caja, usa la herramienta de consulta al PDF para responder y devolve todoos ellos.
     - Si el usuario pregunta sobre la empresa, utiliza la herramienta de consulta al PDF para responder.
     - No des precios que esten dentro del PDF.
     - Las recetas estan dentro del archivo.
+
+    **Manejo de Inventario**:
+    - Responde solo sobre productos en stock; verifica cantidades suficientes.
+    - Si el usuario quiere comprar, usa la herramienta *inventory* para encontrar el producto.
+    - Ante preguntas amplias sobre productos, muestra todas las opciones disponibles.
+    - No reveles el stock actual, solo confirma disponibilidad.
 
     **Puntos de retiro**
     - D1: Uriburu 1074 (de 10:00 hs a 16:00 hs) 
@@ -67,20 +69,16 @@ template = """
     4. Una vez confirmado el pedido, solicitale el nombre, apellido y DNI/CUIT.
     5. Cuando tengas estos datos, guarda los datos del usuario con la herramienta de user_order_data.
     6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago.
-    7. Una vez proporcionen como pagan, usa la herramienta send_email_tool para enviar un mail con el estado del pedido. No le des informacion acerca de mail al usuario, ya que son para uso interno.
+    7. Si elige pagar por transferencia bancaria, usa la herramienta transfer_pay_order para enviar los datos de la transferencia. 
+    8. Una vez proporcionen como pagan, usa la herramienta send_email_tool para enviar un mail con el estado del pedido. Si la persona pago con transferencia, el estado es transfe. No le des informacion acerca de mail al usuario, ya que son para uso interno.
 
     **Pago**
     - Si la persona paga con transferencia bancaria envia el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante.
-
+    - Si la persona paga con Payway, indicale que todavia no esta disponible.
+    
     **Finalizacion del pedido**
     - Una vez se haya enviado la correspondiente confirmacion, pregunta al usuario si quiere seguir comprando o si necesita ayuda con algo mas.
     - Si la respuesta es que no, envia un mensaje de despedida y llama a la herramienta de cancel_order para reiniciar el historial de la conversacion.
-
-    **Lenguaje y Tono**
-    - Usa un lenguaje claro, amigable y local (ej: "tenés", "querés", "son", "vendemos","sos").
-    - Hace enfacis en el lenguaje local, tene en cuenta que la mayoria de los usuarios son de la zona de la ciudad de Rosario.
-    - Varía tus respuestas para mantener una conversación fluida y amena.
-    - Responde como si fueras parte de la empresa, teniendo en cuenta que sos un bot.
 
     **Cancelación del Pedido**
     - Si el cliente quiere cancelar, pregunta si está seguro.
@@ -132,13 +130,13 @@ def message_webhook():
     #Herramienta de consulta de PDF
     @tool
     def pdf_query(input: str) -> str:
-        """Realiza una consulta al PDF de la información de la empresa."""
+        """Usa esta herramienta para obtener la información de la empresa."""
         return get_pdfs_response(input)
 
     #Herramienta de inventario
     @tool
     def inventory() -> list:
-        """Realiza una llamada a la API para obtener productos que solicita el usuario y ver cuales estan disponibles."""
+        """Usa esta herramienta para obtener los productos que solicita el usuario y ver cuales estan disponibles."""
         products = fetch_products_from_api()
         return products
     
@@ -193,11 +191,13 @@ def message_webhook():
 
     #Herramienta de pago de orden
     @tool
-    def pay_order(input: str) -> str:
-        """El usuario quiere pagar el pedido, preguntale al usuario si es consumidor final o no
-        1. Si es consumidor final, responde con "La plataforma de pago todavia no esta disponible, disculpa las molestias"
-        2. Si no es consumidor final, preguntale su razon social para poder buscarlo dentro de la base de datos"
-        3. Si ya solicitaste los datos del usuario, responde con "La plataforma de pago todavia no esta disponible, disculpa las molestias"
+    def transfer_pay_order(input: str) -> str:
+        """Envia al usuario los siguientes datos para hacer la transferencia bancaria indicandole el total que debe transferir. Asegurate de que el total sea el correcto.
+        Datos de la transferencia:
+        Número de cuenta: CC$ 191-274-023677/0
+        Titular: COOP DE TRAB ALIMENTOS SOB LT 
+        CUIT: 30-71837240-9
+        CBU: 19102748-55027402367700
         """
         return f"{input}"
 
@@ -218,7 +218,7 @@ def message_webhook():
         )
         return f"{input}"
     
-    tools = [inventory, pay_order, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data]
+    tools = [inventory, transfer_pay_order, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data]
 
 
     agent = create_tool_calling_agent(llm, tools, principalPrompt)
