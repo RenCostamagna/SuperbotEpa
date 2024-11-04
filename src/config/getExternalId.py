@@ -20,7 +20,7 @@ def get_external_id(product_name: str, inventory: list) -> list:
         Inventario disponible:
         {inventory}
         
-        Devolve unicamente el externalId, el articulo_descripcion, el stock(cantidad que compro el usuario, no lo extraigas del inventario), el rubro y el precioIVA de cada uno de los productos que encontraste. No des informacion adicional.
+        Devolve unicamente el externalId, el articulo_descripcion, el stock(cantidad que compro el usuario, no lo extraigas del inventario), el rubro y el con_iva de cada uno de los productos que encontraste. No des informacion adicional.
         Guarda unicamente los productos solicitados por el usuario. Si el usuario solicito dos o mas productos del mismo, guarda solo uno.
         La respuesta tiene que ser una lista de diccionarios.
         """

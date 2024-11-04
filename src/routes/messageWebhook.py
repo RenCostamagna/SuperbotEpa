@@ -4,6 +4,7 @@ import requests
 import openai
 import json
 
+#Importaciones de utils
 from utils.twilioUtil import send_whatsapp_message
 from utils.dbMongoUtil import get_mongo_connection
 from utils.productsUtil import fetch_products_from_api
@@ -63,21 +64,20 @@ template = """
     - La Lactería: Av Alberdi 445 (de 9:00 hs a 13.30 hs y de 16:00 hs a 20.30 hs)
 
     **Confirmacion del pedido**
-    Para la confirmacion segui los siguientes pasos:
+    Para la confirmacion segui los siguientes pasos: 
     1. Preguntale al usuario si quiere confirmar el pedido antes de seguir.
     2. Cuando el cliente confirme el pedido, ofrecele al usuario los puntos de retiro para que elija uno y aclarale que se retiran el miercoles 6 de noviembre.
     3. Una vez elija uno, usa la herramienta product_order_data con los nombres de los productos y la cantidad que compro para guardar los id en la lista de productos. POr ejemplo: "2 caja epa n1".
     4. Una vez confirmado el pedido, solicitale el nombre, apellido y DNI/CUIT.
     5. Cuando tengas estos datos, guarda los datos del usuario con la herramienta de user_order_data.
-    6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago.
-   
+    6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago. Si el usuario paga por Payway, no uses la herramienta send_email_tool.
+    
     **Pago**
     - Si la persona paga con transferencia bancaria:
         1. Envia el alias y el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante.
         2. Usa la herramienta send_email_tool para enviar un mail con el estado "transferencia" del pedido. No esperes a que pague el usuario para usar la herramienta. No le des informacion acerca de mail al usuario, ya que son para uso interno.
     - Si la persona paga con Payway: 
-        1. Usa la herramienta send_payment_intention para enviar el link de pago al usuario de forma clara.
-        2. Una vez el pago este aprobado, usa la herramienta send_email_tool para enviar un mail con el estado "pago" del pedido. No le des informacion acerca de mail al usuario, ya que son para uso interno.
+        1. Usa la herramienta send_payment_intention para enviar el link de pago al usuario de forma clara. No incluyas el link adentro de una palabra.
     
     **Finalizacion del pedido**
     - Una vez se haya enviado la correspondiente confirmacion, pregunta al usuario si quiere seguir comprando o si necesita ayuda con algo mas.
@@ -162,7 +162,7 @@ def message_webhook():
     
     @tool
     def send_payment_intention(input: str) -> str:
-        """Envia el link de pago al usuario."""
+        """Envia el link de pago al usuario de forma clara. No incluyas el link adentro de una palabra."""
         users_collection = get_mongo_connection('users')
         user = users_collection.find_one({'phone_number': phone_number})
         user_shipp = user.get("last_shipp", {}).get("client", [])
