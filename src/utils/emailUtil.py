@@ -32,8 +32,14 @@ def send_email(status: str, client_data: list, product_list: list) -> str:
 
     # Formatear lista de productos
     products_details = "\nProductos:\n"
+    total_amount = 0  # Inicializar el total
     for product in product_list:
-        products_details += f"- {product.get('artículo_descripcion')}: {product.get('stock', '0')} unidades - ${product.get('con_iva', '0')} - Total: ${int(product.get('stock', '0')) * float(product.get('con_iva', '0'))}\n"
+        stock = int(product.get('stock', '0'))
+        price_with_tax = float(product.get('con_iva', '0'))
+        total_amount += stock * price_with_tax  # Sumar al total
+        products_details += f"- {product.get('artículo_descripcion')}: {stock} unidades - ${price_with_tax} - Total: ${stock * price_with_tax}\n"
+
+    products_details += f"\nTotal general: ${total_amount}\n"  # Agregar total general
 
     formated_shipp = f"DETALLES DEL PEDIDO:{client_details}{products_details}"
     

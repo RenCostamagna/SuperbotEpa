@@ -36,7 +36,7 @@ def payment_webhook():
     send_email("pagado con payway", user_shipp, user_list)  # Esta función debe venir de utils.emailUtil
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "El usuario realizo un pago. Debes enviar un mensaje de agradecimiento por el pago."),
+        ("system", "El usuario realizo un pago. Debes enviar un mensaje de agradecimiento por el pago indicandole que se recibio el pago correctamente."),
         ("placeholder", "{conversation}")
     ])
 

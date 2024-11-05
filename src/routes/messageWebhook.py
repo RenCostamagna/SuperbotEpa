@@ -3,6 +3,7 @@ import os
 import requests
 import openai
 import json
+import redis
 
 #Importaciones de utils
 from utils.twilioUtil import send_whatsapp_message
@@ -27,6 +28,9 @@ load_dotenv()
 
 twilio_auth = HTTPBasicAuth(os.getenv('TWILIO_ACCOUNT_SID'), os.getenv('TWILIO_AUTH_TOKEN'))
 
+#Conexion a Redis
+redis_client = redis.Redis(host='localhost', port=6379, db=0)
+
 message_webhook_bp = Blueprint('message_webhook', __name__)
 #    - No uses negritas. Tene en cuenta que la aplicacion se despliega en whatsapp, y las negritas son con un asterisco para cada lado de la palabra.
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -42,7 +46,7 @@ template = """
     - No uses negritas, ya que en WhatsApp se marcan con asteriscos.
     
     **Tono y Lenguaje**:
-    - Usa un lenguaje claro, amigable y regional: "tenés", "querés", "son", "vendemos", "sos".
+    - Usa un lenguaje claro, amigable y regional: "tenés", "querés", "son", "vendemos", "sos", "acá".
     - Varía tus respuestas para mantener una conversación amena y parecer parte de la empresa.
     
     **Preguntas sobre la empresa: API de PDF**
@@ -74,7 +78,8 @@ template = """
     
     **Pago**
     - Si la persona paga con transferencia bancaria:
-        1. Envia el alias y el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante.
+        1. Envia el alias y el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante. 
+            - Los datos son estos: Titular: COOP DE TRAB ALIMENTOS SOB LT, CBU: 19102748-55027402367700, Alias: epa.rosario.
         2. Usa la herramienta send_email_tool para enviar un mail con el estado "transferencia" del pedido. No esperes a que pague el usuario para usar la herramienta. No le des informacion acerca de mail al usuario, ya que son para uso interno.
     - Si la persona paga con Payway: 
         1. Usa la herramienta send_payment_intention para enviar el link de pago al usuario de forma clara. No incluyas el link adentro de una palabra.
@@ -106,7 +111,20 @@ def message_webhook():
     if audio_url:
         print(f"Audio recibido: {audio_url}")
         incoming_msg = transcribe_audio_with_whisper(audio_url)
+    
+    #Guardar el mensaje en Redis
+    redis_client.rpush("message_queue", f"{phone_number}|{incoming_msg}")
 
+    #Leer el mensaje de Redis
+    print("Leyendo mensaje de Redis")
+    message = redis_client.lpop("message_queue")
+    if message:
+        message = message.decode("utf-8")
+        phone_number, incoming_msg = message.split("|", 1)
+    else:
+        print("No hay mensajes en la cola")  # Manejo de caso cuando no hay mensajes
+
+    #Clear cache
     if incoming_msg.lower() == "clear":
         users_collection = get_mongo_connection('users')
         users_collection.update_one(
@@ -143,6 +161,7 @@ def message_webhook():
         products = fetch_products_from_api()
         return products
     
+    #Herramienta de envio de mail
     @tool
     def send_email_tool(input: str) -> str:  # Cambié el nombre para evitar conflicto
         """Envia un mail con el estado del pedido como "pendiente de pago" o "pagado" dependiendo de la respuesta del usuario"""
@@ -154,12 +173,14 @@ def message_webhook():
         send_email(input, user_shipp, user_list)  # Esta función debe venir de utils.emailUtil
         return input
 
+    #Herramienta de consulta de cliente
     @tool
     def client_data() -> list:
         """Realiza una llamada a la API para verificar si el cliente esta registrado en la base de datos a travez de la razon social o el nombre y apellido."""
         clients = fetch_clients_from_api()
         return clients
     
+    #Herramienta de envio de link pago
     @tool
     def send_payment_intention(input: str) -> str:
         """Envia el link de pago al usuario de forma clara. No incluyas el link adentro de una palabra."""
@@ -170,6 +191,7 @@ def message_webhook():
         url = send_payment_intentions_to_api(user_shipp, user_list, phone_number)
         return url
 
+    #Herramienta de guardado de datos del cliente
     @tool
     def user_order_data(input: list) -> str:
         """Guarda los datos del cliente en last_shipp. Los datos que tenes que guarda son los que le solicitaste al usuario. 
@@ -187,6 +209,7 @@ def message_webhook():
         )
         return input
     
+    #Herramienta de guardado de externalId de los productos del pedido
     @tool
     def product_order_data(input: str) -> str:
         """Guarda los externalId de los productos del pedido en productList. 
@@ -201,17 +224,6 @@ def message_webhook():
             {"$set": {"productList": response}}
         )
         return response
-
-    #Herramienta de pago de orden
-    @tool
-    def transfer_pay_order(input: str) -> str:
-        """Envia al usuario los siguientes datos para hacer la transferencia bancaria indicandole el total que debe transferir. Asegurate de que el total sea el correcto.
-        Datos de la transferencia:
-        Titular: COOP DE TRAB ALIMENTOS SOB LT 
-        CBU: 19102748-55027402367700
-        Alias: epa.rosario
-        """
-        return f"{input}"
 
     #Herramienta de cancelacion de orden
     @tool
@@ -230,8 +242,7 @@ def message_webhook():
         )
         return f"{input}"
     
-    tools = [inventory, transfer_pay_order, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data, send_payment_intention]
-
+    tools = [inventory, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data, send_payment_intention]
 
     agent = create_tool_calling_agent(llm, tools, principalPrompt)
     print("buscando historial de conversacion")

@@ -15,7 +15,7 @@ load_dotenv()
 
 def get_pdfs_response(question: str) -> str:
     openai_api_key = os.getenv("OPENAI_API_KEY")
-    llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.5)
+    llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.3)
     pdf_path = "src/utils/pdf/InformacionEPA.pdf"
 
     loader = PyPDFLoader(pdf_path)
