@@ -164,7 +164,7 @@ def message_webhook():
     #Herramienta de envio de mail
     @tool
     def send_email_tool(input: str) -> str:  # Cambié el nombre para evitar conflicto
-        """Envia un mail con el estado del pedido como "pendiente de pago" o "pagado" dependiendo de la respuesta del usuario"""
+        """Envia un mail con el estado del pedido pago por transferencia."""
         users_collection = get_mongo_connection('users')
         user = users_collection.find_one({'phone_number': phone_number})
         user_shipp = user.get("last_shipp", {}).get("client", [])
