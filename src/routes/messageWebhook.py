@@ -157,7 +157,7 @@ def message_webhook():
     #Herramienta de inventario
     @tool
     def inventory() -> list:
-        """Usa esta herramienta para obtener los productos que solicita el usuario y ver cuales estan disponibles."""
+        """Usa esta herramienta para obtener los productos que solicita el usuario y ver cuales estan disponibles. Si el usuario pregunta el precio de las cajas, usa esta herramienta."""
         products = fetch_products_from_api()
         return products
     

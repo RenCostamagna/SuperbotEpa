@@ -31,6 +31,7 @@ def get_pdfs_response(question: str) -> str:
 
     system_prompt = (
         "Responde las preguntas de los usuarios exclusivamente con el contexto del PDF."
+        "Tene en cuenta que las cajas son 4 diferentes, y que cada una tiene una composición distinta."
         "Si alguien pregunta por los productos que contiene la caja, responde con la lista literal de productos."
         "No agregues nada que no esté en el PDF, y evita extenderte más allá de la información proporcionada."
         "Si alguna información solicitada no está en el PDF, responde simplemente: 'No tengo acceso a esa información.'"
