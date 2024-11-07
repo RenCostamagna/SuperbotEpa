@@ -29,7 +29,8 @@ load_dotenv()
 twilio_auth = HTTPBasicAuth(os.getenv('TWILIO_ACCOUNT_SID'), os.getenv('TWILIO_AUTH_TOKEN'))
 
 #Conexion a Redis
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
+redis_host = os.getenv('REDIS_HOST', 'localhost')  # Usar localhost si no se encuentra la variable de entorno
+redis_client = redis.Redis(host=redis_host, port=os.getenv('REDIS_PORT'), db=os.getenv('REDIS_DB'))
 
 message_webhook_bp = Blueprint('message_webhook', __name__)
 #    - No uses negritas. Tene en cuenta que la aplicacion se despliega en whatsapp, y las negritas son con un asterisco para cada lado de la palabra.
