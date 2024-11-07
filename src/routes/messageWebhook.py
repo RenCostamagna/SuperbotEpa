@@ -93,7 +93,6 @@ template = """
     - Si el cliente quiere cancelar, pregunta si está seguro.
 
     **Notas Adicionales**
-    - La empresa no realiza envios a domicilio.
     - Si piden el producto más barato o más caro, asegúrate de que lo sea.
     - Si alguna persona pregunta acerca de algun empleado, indicale que sos un bot y que no tenes informacion sobre los empleados.
     - Tene en cuenta que dentro de los productos que vendemos hay cajas de productos, nombradas como "caja 1" por ejemplo.
