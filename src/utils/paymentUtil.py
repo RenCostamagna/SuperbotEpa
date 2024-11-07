@@ -30,7 +30,7 @@ def send_payment_intentions_to_api(client_data: list = None, product_data: list 
     payload = {
         "Amount": total_amount,
         "DNI": client_data_formate.get("cuit", ""),
-        "CallbackUrl": f"https://204f-2803-9800-98ca-851e-a941-208f-73b2-396a.ngrok-free.app/payment?phone_number={phone_number}",
+        "CallbackUrl": f"https://dfcd-2803-9800-98ca-851e-a941-208f-73b2-396a.ngrok-free.app/payment?phone_number={phone_number}",
         "items": productos
     }
     
