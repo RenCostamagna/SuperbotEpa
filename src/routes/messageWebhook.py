@@ -38,7 +38,7 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 llm = ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=os.getenv('OPENAI_API_KEY'), temperature=0.3)
 
 template = """
-    Sos un ayudante de ventas de WhatsApp. Tu tarea es ayudar a los usuarios a realizar sus compras y responder preguntas acerca la EPA (Empresa Publica de Alimentos). No brindes informacion sobre otros temas.
+    Sos un ayudante de ventas de WhatsApp. Tu tarea es ayudar a los usuarios a realizar sus compras y responder preguntas acerca la EPA (Empresa Publica de Alimentos). No brindes informacion sobre otros temas. Usa las herramientas como se te indica.
 
     **Reglas de Formato**
     - Usa asteriscos alrededor de *nombres de productos* y *montos totales* para facilitar la lectura en WhatsApp.
@@ -61,34 +61,33 @@ template = """
     - Responde solo sobre productos en stock; verifica cantidades suficientes.
     - Si el usuario quiere comprar, usa la herramienta *inventory* para encontrar el producto.
     - Ante preguntas amplias sobre productos, muestra todas las opciones disponibles.
-    - No reveles el stock actual, solo confirma disponibilidad.
+    - No des informacion sobre el stock, solo confirma disponibilidad.
 
     **Puntos de retiro**
-    - D1: Uriburu 1074 (de 10:00 hs a 16:00 hs) 
-    - D5: Rondeau 2101 (de 10:00 hs a 16:00 hs)
-    - D6: San Martin 1168 (de 10:00 hs a 18:00 hs)
-    - La Lactería: Av Alberdi 445 (de 9:00 hs a 13.30 hs y de 16:00 hs a 20.30 hs)
+    - D1: Uriburu 1074 (Miercoles proximo de 10:00 hs a 16:00 hs) 
+    - D5: Rondeau 2101 (Miercoles proximo de 10:00 hs a 16:00 hs)
+    - D6: San Martin 1168 (Miercoles proximo de 10:00 hs a 18:00 hs)
+    - La Lactería: Av Alberdi 445 (Todos los dias de 9:00 hs a 13.30 hs y de 16:00 hs a 20.30 hs)
 
     **Confirmacion del pedido**
-    Para la confirmacion segui los siguientes pasos: 
+    Para la confirmacion segui los siguientes pasos, asegurante de no repetir pasos: 
     1. Preguntale al usuario si quiere confirmar el pedido antes de seguir.
-    2. Cuando el cliente confirme el pedido, ofrecele al usuario los puntos de retiro para que elija uno y aclarale que se retiran el miercoles 6 de noviembre.
-    3. Una vez elija uno, usa la herramienta product_order_data con los nombres de los productos y la cantidad que compro para guardar los id en la lista de productos. POr ejemplo: "2 caja epa n1".
-    4. Una vez confirmado el pedido, solicitale el nombre, apellido y DNI/CUIT.
-    5. Cuando tengas estos datos, guarda los datos del usuario con la herramienta de user_order_data.
-    6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago. Si el usuario paga por Payway, no uses la herramienta send_email_tool.
+    2. Cuando el cliente confirme el pedido, ofrecele al usuario los puntos de retiro para que elija uno.
+    3. Una vez elija uno, solicitale el nombre, apellido y DNI/CUIT.
+    4. Cuando tengas estos datos, guarda los datos del usuario con la herramienta de user_order_data.
+    5. Despues, usa la herramienta product_order_data con los nombres de los productos y la cantidad que compro para guardar los id en la lista de productos. Por ejemplo: "2 caja epa n1".
+    6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago.
+    
     
     **Pago**
     - Si la persona paga con transferencia bancaria:
-        1. Envia el alias y el cbu para que la persona pueda pagar, e indicale que cuando retire el pedido tiene que mostrar el comprobante. 
-            - Los datos son estos: Titular: COOP DE TRAB ALIMENTOS SOB LT, CBU: 19102748-55027402367700, Alias: epa.rosario.
-        2. Usa la herramienta send_email_tool para enviar un mail con el estado "transferencia" del pedido. No esperes a que pague el usuario para usar la herramienta. No le des informacion acerca de mail al usuario, ya que son para uso interno.
+        1. Usa la herramienta transfer_data para enviar el alias y el cbu para que la persona pueda pagar, e indicale que cuando realice el pago envie un mensaje de confirmacion y que cuando retire el pedido tiene que mostrar el comprobante.
     - Si la persona paga con Payway: 
         1. Usa la herramienta send_payment_intention para enviar el link de pago al usuario de forma clara. No incluyas el link adentro de una palabra.
     
     **Finalizacion del pedido**
-    - Una vez se haya enviado la correspondiente confirmacion, pregunta al usuario si quiere seguir comprando o si necesita ayuda con algo mas.
-    - Si la respuesta es que no, envia un mensaje de despedida y llama a la herramienta de cancel_order para reiniciar el historial de la conversacion.
+    - Cuando la persona haya realizado el pago, usa la herramienta send_email_tool para enviar un mail con el estado "transferencia" del pedido. No le des informacion acerca de mail al usuario, ya que son para uso interno.
+    - Una vez se haya enviado la correspondiente confirmacion, envia un mensaje de agradecimiento por su compra al usuario y preguntando si quiere seguir comprando o si necesita ayuda con algo mas.
 
     **Cancelación del Pedido**
     - Si el cliente quiere cancelar, pregunta si está seguro.
@@ -130,7 +129,7 @@ def message_webhook():
         users_collection = get_mongo_connection('users')
         users_collection.update_one(
             {"phone_number": phone_number},
-            {"$set": {"conversation": [], "last_shipp": {"orderId": 0, "client": []}, "productList": []}}
+            {"$set": {"conversation": [], "last_shipp": {"orderId": 0, "client": []}, "productList": [], "bandera_pago": False}}
         )
         send_whatsapp_message(phone_number, "Historial de conversacion reiniciado")
         return "Historial de conversacion reiniciado"
@@ -155,6 +154,13 @@ def message_webhook():
         """Usa esta herramienta para obtener la información de la empresa."""
         return get_pdfs_response(input)
 
+    @tool
+    def transfer_data(input: str) -> str:
+        """Envia el alias y el cbu para que el usuario pueda pagar. Los datos son estos:
+        - Titular: COOP DE TRAB ALIMENTOS SOB LT, CBU: 19102748-55027402367700, Alias: epa.rosario.
+        """
+        return input
+
     #Herramienta de inventario
     @tool
     def inventory() -> list:
@@ -165,7 +171,7 @@ def message_webhook():
     #Herramienta de envio de mail
     @tool
     def send_email_tool(input: str) -> str:  # Cambié el nombre para evitar conflicto
-        """Envia un mail con el estado del pedido pago por transferencia."""
+        """Envia un mail con el estado del pedido pago por transferencia una vez se haya enviado el alias y el cbu para que el usuario pueda pagar."""
         users_collection = get_mongo_connection('users')
         user = users_collection.find_one({'phone_number': phone_number})
         user_shipp = user.get("last_shipp", {}).get("client", [])
@@ -243,13 +249,25 @@ def message_webhook():
         )
         return f"{input}"
     
-    tools = [inventory, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data, send_payment_intention]
+    tools = [inventory, transfer_data, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data, send_payment_intention]
 
     agent = create_tool_calling_agent(llm, tools, principalPrompt)
     print("buscando historial de conversacion")
     # Obtener el historial de conversación, creando el usuario si no existe
     if user:
         chat_history = user.get("conversation", [])
+        
+        # Buscar el último mensaje del rol "user"
+        last_user_message = None
+        for message in reversed(chat_history):
+            if message["role"] == "user":
+                last_user_message = message["content"]
+                break
+        
+        # Verificar si el último mensaje del usuario es igual al mensaje entrante
+        if last_user_message == incoming_msg:
+            print("Mensaje duplicado recibido, ignorando.")
+            return "Mensaje duplicado ignorado"
     else:
         # Crear un nuevo usuario si no existe
         users_collection.insert_one({
@@ -257,6 +275,7 @@ def message_webhook():
             "conversation": [{"role": "user", "content": incoming_msg}],    
             "id_cliente": None,
             "last_conversation": [],
+            "bandera_pago": False,
             "productList": [],
             "total": None,
             "last_shipp": {
