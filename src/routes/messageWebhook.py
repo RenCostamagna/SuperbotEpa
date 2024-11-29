@@ -39,6 +39,36 @@ llm = ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=os.getenv('OPENAI_API_
 
 template = """
     Sos un ayudante de ventas de WhatsApp. Tu tarea es ayudar a los usuarios a realizar sus compras y responder preguntas acerca la EPA (Empresa Publica de Alimentos). No brindes informacion sobre otros temas. Usa las herramientas como se te indica.
+        
+    ### **Herramientas Disponibles**
+        1. **inventory**:  
+        - Permite buscar productos disponibles en el inventario de Epa.  
+        - Devuelve información sobre los productos disponibles, incluyendo nombre y precio.
+        - No tiene informacion sobre el contenido de las cajas.
+        
+        2. **user_order_data**:  
+        - Guarda la información del usuario y el estado de su pedido confirmado.  
+        - Requiere los datos del pedido y del usuario.
+        - Se usa una sola vez, despues de que el usuario proporcione sus datos: DNI, nombre, apellido y punto de retiro.
+
+        3. **product_order_data**:  
+        - Guarda los externalId de los productos del pedido en productList.  
+        - Al igual que la herramienta anterior, se usa una sola vez, despues de que el usuario proporcione los productos que quiere comprar.
+
+        4. **send_payment_intention**:  
+        - Genera un link de pago mediante Payway para que el cliente pueda pagar su pedido.  
+        - Se utiliza solo si el usuario paga con Payway.
+
+        5. **transfer_data**:  
+        - Envia el alias y el cbu para que el usuario pueda pagar, e indicale que cuando realice el pago envie un mensaje de confirmacion y que cuando retire el pedido tiene que mostrar el comprobante.
+
+        6. **pdf_query**:  
+        - Consulta la información de la empresa en el archivo PDF.
+        - Se usa cuando el usuario pregunta sobre la empresa o sobre los productos que contiene la caja.
+
+        7. **cancel_order**:  
+        - Reinicia el historial de conversación y cancela el pedido del usuario.  
+        - Se usa cuando el cliente confirma la cancelación o al finalizar la interacción.
 
     **Reglas de Formato**
     - Usa asteriscos alrededor de *nombres de productos* y *montos totales* para facilitar la lectura en WhatsApp.
@@ -99,6 +129,7 @@ template = """
     - Si alguna persona pregunta acerca de algun empleado, indicale que sos un bot y que no tenes informacion sobre los empleados.
     - Tene en cuenta que dentro de los productos que vendemos hay cajas de productos, nombradas como "caja 1" por ejemplo.
     - Si lo creer necesario, usa mas de una herramienta para responder la pregunta.
+    - Si la persona reporta algun problema, indicale que se comunique al siguiente numero de telefono: +5493412149373
     """
 
 @message_webhook_bp.route('', methods=['POST'])
@@ -178,16 +209,16 @@ def message_webhook():
         return products
     
     #Herramienta de envio de mail
-    @tool
-    def send_email_tool(input: str) -> str:  # Cambié el nombre para evitar conflicto
-        """Envia un mail con el estado del pedido pago por transferencia una vez se haya enviado el alias y el cbu para que el usuario pueda pagar."""
-        users_collection = get_mongo_connection('users')
-        user = users_collection.find_one({'phone_number': phone_number})
-        user_shipp = user.get("last_shipp", {}).get("client", [])
-        user_list = user.get("productList", None)
-        send_order_to_api(user_list, user_shipp, phone_number)
-        send_email(input, user_shipp, user_list)  # Esta función debe venir de utils.emailUtil
-        return input
+    #@tool
+    #def send_email_tool(input: str) -> str:  # Cambié el nombre para evitar conflicto
+    #    """Envia un mail con el estado del pedido pago por transferencia una vez se haya enviado el alias y el cbu para que el usuario pueda pagar."""
+    #    users_collection = get_mongo_connection('users')
+    #    user = users_collection.find_one({'phone_number': phone_number})
+    #    user_shipp = user.get("last_shipp", {}).get("client", [])
+    #    user_list = user.get("productList", None)
+    #    send_order_to_api(user_list, user_shipp, phone_number)
+    #    send_email(input, user_shipp, user_list)  # Esta función debe venir de utils.emailUtil
+    #    return input
 
     #Herramienta de consulta de cliente
     @tool
@@ -231,9 +262,7 @@ def message_webhook():
         """Guarda los externalId de los productos del pedido en productList. 
         """
         products = fetch_products_from_api()
-        print("productos", products)
         response = get_external_id(input, products)
-        print("response", response)
         users_collection = get_mongo_connection('users')
         users_collection.update_one(
             {"phone_number": phone_number},
@@ -258,7 +287,7 @@ def message_webhook():
         )
         return f"{input}"
     
-    tools = [inventory, transfer_data, cancel_order, client_data, pdf_query, send_email_tool, user_order_data, product_order_data, send_payment_intention]
+    tools = [inventory, transfer_data, cancel_order, client_data, pdf_query, user_order_data, product_order_data, send_payment_intention]
 
     agent = create_tool_calling_agent(llm, tools, principalPrompt)
     print("buscando historial de conversacion")
