@@ -21,7 +21,7 @@ def get_pdfs_response(question: str) -> str:
     loader = PyPDFLoader(pdf_path)
     data = loader.load()
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=200)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
     splits = text_splitter.split_documents(data)
     vectorstore = InMemoryVectorStore.from_documents(
         documents=splits, embedding=OpenAIEmbeddings()

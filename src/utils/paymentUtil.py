@@ -18,7 +18,7 @@ def send_payment_intentions_to_api(client_data: list = None, product_data: list 
             "name": str(product_info.get("artículo_descripcion", "") or product_info.get("name", "")),
             "sku": str(product_info.get("externalId", "")),
             "quantity": int(product_info.get("stock", "0")),
-            "total_amount": int(float(product_info.get("con_iva", "0")) * int(product_info.get("stock", "0"))),
+            "total_amount": int(float(product_info.get("con_iva", "0").replace(',', '.')) * int(product_info.get("stock", "0"))) if product_info.get("con_iva", "0").replace(',', '.').replace('.', '', 1).isdigit() else 0,
             "unit_price": int(float(product_info.get("con_iva", "0")))
         }
         for product_info in product_data
@@ -30,7 +30,7 @@ def send_payment_intentions_to_api(client_data: list = None, product_data: list 
     payload = {
         "Amount": total_amount,
         "DNI": client_data_formate.get("cuit", ""),
-        "CallbackUrl": f"https://a045-2803-9800-98ca-851e-cd0d-9c30-d83-6d0b.ngrok-free.app/payment?phone_number={phone_number}",
+        "CallbackUrl": f"https://superbproyecto.com/epa/payment?phone_number={phone_number}",
         "items": productos
     }
     
@@ -49,3 +49,9 @@ def send_payment_intentions_to_api(client_data: list = None, product_data: list 
         return generated_url_final  # Retornar solo el generatedUrl
     else:
         return "error"  # Retornar un string vacío en caso de error
+
+
+#client_data = [{ "id": 1, "razon_social": "Juan Perez", "cuit": "2024567890", "retiro": "1234567890"}]
+#product_data = [{"externalId": 1, "artículo_descripcion": "Producto 1", "stock": "1", "rubro": "rubro1", "con_iva": "17500.0"}]
+#phone_number = "1234567890"
+#link = send_payment_intentions_to_api(client_data, product_data, phone_number)

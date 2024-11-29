@@ -46,15 +46,17 @@ template = """
     - Si la persona solicita un producto, devuélvelo en forma de lista para facilitar la lectura; incluye la cantidad y el total si es más de uno del mismo producto.
     - No uses negritas, ya que en WhatsApp se marcan con asteriscos.
     
+    **Preguntas sobre como comprar**
+    - Si la persona pregunta como comprar, indicale un paso a paso para que pueda realizar su compra asi no se pierde.
+
     **Tono y Lenguaje**:
     - Usa un lenguaje claro, amigable y regional: "tenés", "querés", "son", "vendemos", "sos", "acá".
     - Varía tus respuestas para mantener una conversación amena y parecer parte de la empresa.
-    
+
     **Preguntas sobre la empresa: API de PDF**
     - Si la persona pregunta el precio de las cajas, NO uses la herramienta de consulta al PDF, usa el precio que figura en el inventario.
-    - Siempre que la persona pida que productos contiene la caja, usa la herramienta de consulta al PDF para responder y devolve todoos ellos.
+    - Siempre que la persona pida informacion sobre los productos que contiene la caja, usa la herramienta pdf_query para responder y devolve todos ellos.
     - Si el usuario pregunta sobre la empresa, utiliza la herramienta de consulta al PDF para responder.
-    - No des precios que esten dentro del PDF.
     - Las recetas estan dentro del archivo.
 
     **Manejo de Inventario**:
@@ -78,15 +80,15 @@ template = """
     5. Despues, usa la herramienta product_order_data con los nombres de los productos y la cantidad que compro para guardar los id en la lista de productos. Por ejemplo: "2 caja epa n1".
     6. Una vez hecho eso, preguntale al cliente si quiere pagar el pedido por transferencia bancaria o a travez de Payway. Estos son los unicos medios de pago.
     
-    
     **Pago**
     - Si la persona paga con transferencia bancaria:
         1. Usa la herramienta transfer_data para enviar el alias y el cbu para que la persona pueda pagar, e indicale que cuando realice el pago envie un mensaje de confirmacion y que cuando retire el pedido tiene que mostrar el comprobante.
     - Si la persona paga con Payway: 
         1. Usa la herramienta send_payment_intention para enviar el link de pago al usuario de forma clara. No incluyas el link adentro de una palabra.
+    - Si la persona pide pagar en efectivo, indicale que no es posible.
     
     **Finalizacion del pedido**
-    - Cuando la persona haya realizado el pago, usa la herramienta send_email_tool para enviar un mail con el estado "transferencia" del pedido. No le des informacion acerca de mail al usuario, ya que son para uso interno.
+    - Asegurate de aclararle al usuario que pago con transferencia, y que cuando retire el pedido tiene que mostrar el comprobante.
     - Una vez se haya enviado la correspondiente confirmacion, envia un mensaje de agradecimiento por su compra al usuario y preguntando si quiere seguir comprando o si necesita ayuda con algo mas.
 
     **Cancelación del Pedido**
@@ -154,11 +156,18 @@ def message_webhook():
         """Usa esta herramienta para obtener la información de la empresa."""
         return get_pdfs_response(input)
 
+    #Herramienta de envio de datos de transferencia
     @tool
     def transfer_data(input: str) -> str:
         """Envia el alias y el cbu para que el usuario pueda pagar. Los datos son estos:
         - Titular: COOP DE TRAB ALIMENTOS SOB LT, CBU: 19102748-55027402367700, Alias: epa.rosario.
         """
+        users_collection = get_mongo_connection('users')
+        user = users_collection.find_one({'phone_number': phone_number})
+        user_shipp = user.get("last_shipp", {}).get("client", [])
+        user_list = user.get("productList", None)
+        send_order_to_api(user_list, user_shipp, phone_number)
+        send_email("Pago con: Transferencia", user_shipp, user_list)  # Esta función debe venir de utils.emailUtil
         return input
 
     #Herramienta de inventario
